@@ -7,7 +7,7 @@ import MainGame from './components/MainGame';
 import ElectionScreen from './components/ElectionScreen';
 import MusicPlayer from './components/MusicPlayer';
 
-const oppositionPartyPresets: Omit<Party, 'seats' | 'isPlayer' | 'support' | 'relation'>[] = [
+const oppositionPartyPresets: Omit<Party, 'seats' | 'isPlayer' | 'support' | 'relation' | 'npcRelations'>[] = [
   // 左派・社会主義・社会民主主義
   { partyName: '社会民主党', ideology: '社会民主主義' },
   { partyName: '労働党', ideology: '社会主義' },
@@ -137,7 +137,7 @@ const App: React.FC = () => {
       const playerSeats = 40;
       let remainingSeats = totalSeats - playerSeats;
 
-      const partiesWithSeats: Party[] = otherParties.map((party, index) => {
+      const partiesWithSeats: Omit<Party, 'npcRelations'>[] = otherParties.map((party, index) => {
         let seats = Math.floor(remainingSeats / (otherParties.length - index));
         if (index === otherParties.length - 1) {
             seats = remainingSeats;
@@ -150,6 +150,17 @@ const App: React.FC = () => {
             relation: calculateInitialRelation(ideology, party.ideology)
         };
       });
+      
+      // Add npcRelations
+      const finalPartiesWithSeats = partiesWithSeats.map(p1 => {
+          const npcRelations: Record<string, number> = {};
+          partiesWithSeats.forEach(p2 => {
+              if (p1.partyName !== p2.partyName) {
+                  npcRelations[p2.partyName] = calculateInitialRelation(p1.ideology, p2.ideology);
+              }
+          });
+          return { ...p1, npcRelations };
+      });
 
       const playerParty: Party = {
         partyName: partyName,
@@ -158,9 +169,10 @@ const App: React.FC = () => {
         seats: playerSeats,
         support: 40,
         relation: 100,
+        npcRelations: {},
       };
 
-      const allParties = [playerParty, ...partiesWithSeats];
+      const allParties = [playerParty, ...finalPartiesWithSeats];
 
       setGameState({
         status: GameStatus.Playing,
@@ -247,9 +259,23 @@ const App: React.FC = () => {
       const playerPartyAfterElection = newParties.find(p => p.isPlayer);
       if (!playerPartyAfterElection) return prev; // Should not happen
 
-      const updatedParties = newParties.map(p => {
-        if (p.isPlayer) return { ...p, relation: 100 };
-        return { ...p, relation: calculateInitialRelation(playerPartyAfterElection.ideology, p.ideology) };
+      const updatedParties = newParties.map(p1 => {
+        if (p1.isPlayer) {
+          return { ...p1, relation: 100, npcRelations: {} };
+        }
+        
+        const npcRelations: Record<string, number> = {};
+        newParties.forEach(p2 => {
+            if (!p2.isPlayer && p1.partyName !== p2.partyName) {
+                npcRelations[p2.partyName] = calculateInitialRelation(p1.ideology, p2.ideology);
+            }
+        });
+
+        return { 
+            ...p1, 
+            relation: calculateInitialRelation(playerPartyAfterElection.ideology, p1.ideology),
+            npcRelations
+        };
       });
 
       return {

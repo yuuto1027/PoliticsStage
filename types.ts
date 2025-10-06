@@ -1,4 +1,3 @@
-
 export enum GameStatus {
   Playing = 'Playing',
   Election = 'Election',
@@ -41,7 +40,8 @@ export interface Party {
   isPlayer?: boolean;
   seats: number;
   support: number;
-  relation: number;
+  relation: number; // Relation to player
+  npcRelations?: Record<string, number>; // Relation to other NPCs
 }
 
 export interface Player {

@@ -114,7 +114,48 @@ const runOppositionCampaignTurn = (currentGameState: GameState): { updatedPartie
         }
     });
 
-    return { updatedParties, logs };
+    // NPC Cooperation Logic
+    const cooperatedPartiesThisTurn = new Set<string>();
+    const cooperationLogs: string[] = [];
+
+    initialPartiesForDecision.forEach(p => {
+        if (p.isPlayer || cooperatedPartiesThisTurn.has(p.partyName)) {
+            return;
+        }
+
+        const potentialPartners = initialPartiesForDecision.filter(otherP => 
+            !otherP.isPlayer &&
+            p.partyName !== otherP.partyName &&
+            !cooperatedPartiesThisTurn.has(otherP.partyName)
+        );
+
+        if (potentialPartners.length > 0 && p.npcRelations) {
+            // Find best friend
+            potentialPartners.sort((a, b) => (p.npcRelations![b.partyName] ?? 0) - (p.npcRelations![a.partyName] ?? 0));
+            const bestFriend = potentialPartners[0];
+            const relationScore = p.npcRelations[bestFriend.partyName] ?? 0;
+            
+            // Check for cooperation
+            if (relationScore > 70 && Math.random() < 0.25) {
+                const partyToUpdate = updatedParties.find(up => up.partyName === p.partyName)!;
+                const friendToUpdate = updatedParties.find(up => up.partyName === bestFriend.partyName)!;
+
+                const mainGain = 0.5 + Math.random() * 0.3; // 0.5 - 0.8
+                const assistGain = 0.2 + Math.random() * 0.2; // 0.2 - 0.4
+
+                partyToUpdate.support = Math.min(100, partyToUpdate.support + mainGain);
+                friendToUpdate.support = Math.min(100, friendToUpdate.support + assistGain);
+                
+                cooperationLogs.push(`[選挙協力] ${bestFriend.partyName}が${p.partyName}への支持を表明した。両党の支持がわずかに上昇した。`);
+
+                cooperatedPartiesThisTurn.add(p.partyName);
+                cooperatedPartiesThisTurn.add(bestFriend.partyName);
+            }
+        }
+    });
+
+
+    return { updatedParties, logs: [...logs, ...cooperationLogs] };
 };
 
 
